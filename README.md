@@ -9,10 +9,3 @@ The code provides two different ways to load triplets for the network. First, it
 ```sh
 $ python train.py
 ```
-### Tracking experiments with Visdom
-
-This repository allows to track experiments with [visdom](https://github.com/facebookresearch/visdom). You can use the [VisdomLinePlotter](https://github.com/andreasveit/triplet-network-pytorch/blob/master/train.py#L216) to plot training progress.
-
-<img src="https://github.com/andreasveit/triplet-network-pytorch/blob/master/images/visdom.png?raw=true" width="400">
-
-If this implementation is useful to you and your project, please also consider to cite or acknowledge this code repository.
