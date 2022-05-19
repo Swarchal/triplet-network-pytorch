@@ -7,6 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
+import numpy as np
+import matplotlib.pyplot as plt
+import resnet
+
 
 from triplet_mnist_loader import MNIST_t
 from triplet_image_loader import TripletImageLoader
@@ -85,7 +89,11 @@ def main():
             train=True,
             download=True,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.1307,), (0.3081,)),
+                    transforms.Resize(244)
+                ]
             ),
         ),
         batch_size=args.batch_size,
@@ -97,7 +105,11 @@ def main():
             "../data",
             train=False,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.1307,), (0.3081,)),
+                    transforms.Resize(244)
+                ]
             ),
         ),
         batch_size=args.batch_size,
@@ -112,7 +124,7 @@ def main():
             self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
             self.conv2_drop = nn.Dropout2d()
             self.fc1 = nn.Linear(320, 50)
-            self.fc2 = nn.Linear(50, 10)
+            self.fc2 = nn.Linear(50, 2)
 
         def forward(self, x):
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
@@ -122,7 +134,7 @@ def main():
             x = F.dropout(x, training=self.training)
             return self.fc2(x)
 
-    model = Net()
+    model = resnet.resnet18(num_classes=2)
     tnet = Tripletnet(model)
     tnet = tnet.to(device)
 
@@ -202,9 +214,11 @@ def train(train_loader, tnet, criterion, optimizer, epoch):
             )
 
 
+@torch.no_grad()
 def test(test_loader, tnet, criterion, epoch):
     losses = AverageMeter()
     accs = AverageMeter()
+    embeddings = []
 
     # switch to evaluation mode
     tnet.eval()
@@ -212,15 +226,19 @@ def test(test_loader, tnet, criterion, epoch):
         data1, data2, data3, = data1.to(device), data2.to(device), data3.to(device)
 
         # compute output
-        dista, distb, _, _, _ = tnet(data1, data2, data3)
+        dista, distb, embed_a, _, _ = tnet(data1, data2, data3)
         target = torch.FloatTensor(dista.size()).fill_(1)
         target = target.to(device)
         test_loss = criterion(dista, distb, target).item()
+        embeddings.append(embed_a.data.cpu().numpy())
 
         # measure accuracy and record loss
         acc = accuracy(dista, distb)
         accs.update(acc, data1.size(0))
         losses.update(test_loss, data1.size(0))
+    embeddings_arr = np.vstack(embeddings)
+    plt.scatter(embeddings_arr[:,0], embeddings_arr[:,1], s=4, alpha=0.3)
+    plt.show()
 
     print(
         "\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n".format(
